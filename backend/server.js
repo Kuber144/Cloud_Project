@@ -243,6 +243,46 @@ setInterval(() => {
     checkAndUpdateOutput(userId);
   });
 }, 2000); // Interval in milliseconds
+// Define the threshold for inactivity (30 minutes)
+const INACTIVITY_THRESHOLD = 30 * 60 * 1000; // 30 minutes in milliseconds
+
+// Function to check for inactive users and delete their folders and containers
+// Function to check for inactive users and delete their folders, containers, and Python processes
+async function checkInactiveUsers() {
+  const currentTime = new Date().getTime();
+
+  for (const [userId, container] of Object.entries(userContainers)) {
+    if (container.data.lastActivityTime && 
+        (currentTime - container.data.lastActivityTime) > INACTIVITY_THRESHOLD) {
+      try {
+        // Kill the Python process if it exists
+        if (pythonProcesses[userId]) {
+          pythonProcesses[userId].kill("SIGTERM");
+          delete pythonProcesses[userId];
+        }
+
+        // Stop the container
+        await container.stop();
+
+        // Remove the container
+        await container.remove();
+
+        // Delete the user directory
+        const userDirectory = path.join(userDirectoryPath, userId);
+        fs.rmdirSync(userDirectory, { recursive: true });
+
+        // Remove the user entry from the userContainers object
+        delete userContainers[userId];
+        console.log(`User ${userId} has been inactive and their container, directory, and Python process have been removed.`);
+      } catch (error) {
+        console.error(`Error cleaning up resources for user ${userId}:`, error);
+      }
+    }
+  }
+}
+
+// Schedule the checkInactiveUsers function to run periodically (every 10 minutes)
+setInterval(checkInactiveUsers, 10 * 60 * 1000); // 10 minutes in milliseconds
 
 // Serve static files for frontend
 app.use(express.static("public"));
