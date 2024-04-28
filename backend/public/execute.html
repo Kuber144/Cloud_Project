@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Execute Python Code</title>
+  </head>
+  <body>
+    <div class="container">
+      <div class="sidebar">
+        <h2>File Upload</h2>
+        <form id="uploadForm" enctype="multipart/form-data">
+          <input type="file" name="file" id="fileInput" />
+          <button type="submit">Upload</button>
+        </form>
+      </div>
+      <div class="main-content">
+        <h1>Code Editor</h1>
+        <textarea id="code" rows="10" cols="50"></textarea>
+        <button onclick="executeCode()">Execute</button>
+        <hr />
+        <h2>Serve Model Code</h2>
+        <textarea id="serveModelCode" rows="10" cols="50"></textarea>
+        <button onclick="deployModel()">Deploy Model</button>
+        <div id="output"></div>
+      </div>
+    </div>
+    <script>
+      const uploadForm = document.getElementById("uploadForm");
+
+      // Function to handle file upload
+      window.addEventListener("DOMContentLoaded", () => {
+        uploadForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+
+          const formData = new FormData();
+          const file = document.getElementById("fileInput").files[0];
+          formData.append("file", file);
+          const userId = window.location.pathname.split("/").pop();
+          try {
+            await fetch(`/upload/${userId}`, {
+              method: "POST",
+              body: formData,
+            });
+            document.getElementById("fileInput").value = "";
+            alert("File uploaded successfully!");
+          } catch (error) {
+            console.error("Error uploading file:", error);
+            alert("Failed to upload file. Please try again.");
+          }
+        });
+      });
+
+      async function executeCode() {
+        const code = document.getElementById("code").value;
+        const userId = window.location.pathname.split("/").pop();
+        const response = await fetch(`/execute/${userId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ code }),
+        });
+        const data = await response.json();
+        document.getElementById("output").innerText = data.output;
+      }
+
+      async function deployModel() {
+        const serveModelCode = document.getElementById("serveModelCode").value;
+        const userId = window.location.pathname.split("/").pop();
+        const response = await fetch(`/deploy-model/${userId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ serveModelCode }),
+        });
+        const data = await response.json();
+        document.getElementById("output").innerText = data.message;
+      }
+
+      // Create WebSocket connection
+      const ws = new WebSocket(`ws://localhost:${PORT}`);
+      ws.onopen = () => {
+        console.log("WebSocket connection established");
+      };
+      ws.onmessage = (event) => {
+        document.getElementById("output").innerText += event.data;
+      };
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+      };
+      ws.onclose = () => {
+        console.log("WebSocket connection closed");
+      };
+    </script>
+  </body>
+</html>
